@@ -1,0 +1,111 @@
+﻿body {
+  background: url('/images/background.svg') no-repeat center center fixed;
+  background-size: cover;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-family: Arial, sans-serif;
+}
+
+.login-container {
+  position: absolute;
+  right: 10%;  
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: #ffffff; /* Màu nền trắng ngà */
+  padding: 30px;
+  border-radius: 10px;
+  width: 300px;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); /* Đổ bóng để tạo hiệu ứng nổi */
+}
+
+h1 {
+  margin-bottom: 20px;
+  color: #000610;
+  font-weight: bold;
+}
+
+.input-group {
+  text-align: left;
+  margin-bottom: 15px;
+}
+
+.input-group label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+
+.input-group input {
+  width: 90%; 
+  max-width: 320px; 
+  padding: 10px;
+  border: 2px solid #02082b;
+  border-radius: 20px;
+  display: block;
+  margin: 0 auto; 
+}
+
+.forgot-password {
+  text-align: left;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.forgot-password a {
+  color: #000000;
+  text-decoration: none;
+  transition: text-decoration 0.3s ease-in-out, color 0.3s ease-in-out;
+}
+
+.forgot-password a:hover {
+  color: #727272;
+  text-decoration: underline;
+  text-decoration-color: rgba(161, 161, 161, 0.5); /* Màu xanh lá mờ */
+}
+
+
+.btn-login {
+  background-color: #00081a;
+  color: white;
+  padding: 10px;
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.btn-login:hover {
+  background-color: #010c68;
+}
+
+.help-link {
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+.help-link a {
+  font-weight: bold;
+  color: #000000;
+  text-decoration: none;
+}
+.help-link a:hover {
+  font-weight: bold;
+  color: #7c7c7c;
+}
+.help-link a:hover {
+  text-decoration: underline;
+  text-decoration-color: rgba(0, 0, 0, 0.5); /* Màu xanh lá mờ */
+}
+.error-text {
+  display: none; /* Mặc định ẩn lỗi */
+  color: red;
+  font-size: 14px;
+  font-weight: bold;
+  margin-top: 5px;
+  text-align: left;
+  padding-left: 10px;
+}
