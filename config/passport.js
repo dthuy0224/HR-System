@@ -21,7 +21,9 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-// ✅ Local Strategy - Add Employee
+
+
+
 passport.use(
   "local.add-employee",
   new LocalStrategy(
