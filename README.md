@@ -46,6 +46,7 @@ Accounts Manager is also an employee with the ability to generate pay slip, set 
 
 ### Setup Data
 1. For initial list of users, you need to run user-seeder.js file in seed directory of application, in the the terminal, type command **node seed/user-seeder.js**.
+2. For initial list of projects, u need to rn project-seeder.js file in seed directory of application, in the terminal, type command **node seed/project-seeder.js**
 1. Dummy username/email address and passwords for each type of user can be found in seed/user-seeder.js file. 
 
 ### Run Server
