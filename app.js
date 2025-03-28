@@ -24,6 +24,7 @@ const admin = require("./routes/admin");
 const employee = require("./routes/employee");
 const manager = require("./routes/manager");
 const db = require("./db");
+const debugRoute = require("./debug-route");
 
 expressValidator = require("express-validator");
 
@@ -97,6 +98,7 @@ app.use("/", index);
 app.use("/admin", admin);
 app.use("/manager", manager);
 app.use("/employee", employee);
+app.use("/", debugRoute);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

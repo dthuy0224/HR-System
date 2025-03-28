@@ -474,7 +474,7 @@
             <!-- Sidebar -->
             <div id="sidebar-wrapper">
                 <ul class="sidebar-nav nav-pills nav-stacked" id="menu">
-                    <li class="active">
+                    <li>
                         <a href="/employee/"><span class="fa-stack fa-lg pull-left"><i
                                     class="fa fa-dashboard fa-stack-1x"></i></span> Dashboard</a>
                     </li>
@@ -667,7 +667,7 @@
         <!-- View Attendance Modal -->
         <div id="myModal" class="modal fade" role="dialog">
             <div class="modal-dialog">
-                <form method="get" action="/employee/view-attendance">
+                <form method="post" action="/employee/view-attendance">
                     <!-- Modal content-->
                 <div class="modal-content">
                     <div class="modal-header">
@@ -675,9 +675,32 @@
                             <h4 class="modal-title">View Attendance</h4>
                     </div>
                     <div class="modal-body">
-                            <p>Select date to view attendance:</p>
-                            <input type="date" class="form-control" name="date" value="<%= new Date().toISOString().substr(0, 10) %>">
+                            <p>Select month and year to view attendance:</p>
+                            <div class="form-group">
+                                <label for="Month">Month:</label>
+                                <select class="form-control" id="month" name="month">
+                                    <option value="1">January</option>
+                                    <option value="2">February</option>
+                                    <option value="3">March</option>
+                                    <option value="4">April</option>
+                                    <option value="5">May</option>
+                                    <option value="6">June</option>
+                                    <option value="7">July</option>
+                                    <option value="8">August</option>
+                                    <option value="9">September</option>
+                                    <option value="10">October</option>
+                                    <option value="11">November</option>
+                                    <option value="12">December</option>
+                                </select>
                             </div>
+                            <div class="form-group">
+                                <label for="year">Year:</label>
+                                <select class="form-control" id="year" name="year">
+                                    <!-- Will be populated by JavaScript -->
+                                    <option value="<%= new Date().getFullYear() %>"><%= new Date().getFullYear() %></option>
+                                </select>
+                            </div>
+                        </div>
                         <div class="modal-footer">
                             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                             <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
@@ -699,11 +722,12 @@
                             <h4 class="modal-title">Mark Attendance</h4>
                     </div>
                     <div class="modal-body">
-                            <p>Are you sure you want to mark attendance.</p>
+                            <p>Are you sure you want to mark attendance?</p>
+                            <p><small>* If this is your first attendance today, it will be recorded as check-in. If you have already checked in, this will be recorded as check-out.</small></p>
                         </div>
                         <div class="modal-footer">
                             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                            <button type="reset" class="btn btn-default" data-dismiss="modal">No</button>
+                            <button type="button" class="btn btn-default" data-dismiss="modal">No</button>
                             <button type="submit" class="btn btn-primary">Yes</button>
                         </div>
                     </div>
@@ -771,8 +795,17 @@
                 updateCurrentDate();
                 setInterval(updateCurrentDate, 1000);
                 
-                // Populate year dropdown if needed
-                populateYearDropdown();
+                // Populate years for attendance modal
+                const currentYear = new Date().getFullYear();
+                const yearSelect = $('#year');
+                if (yearSelect.length > 0 && yearSelect.find('option').length <= 1) {
+                    for (let year = currentYear; year > currentYear - 10; year--) {
+                        yearSelect.append($("<option />").val(year).html(year));
+                    }
+                }
+                
+                // Set current month in dropdown
+                $("#month").val(new Date().getMonth() + 1);
                 
                 // Set the first menu item as active
                 if ($('#menu li.active').length === 0) {
@@ -788,21 +821,6 @@
                 
                 $('.day-name').text(dayName);
                 $('#currentDate').text(formattedDate);
-            }
-            
-            // Function to populate year dropdown
-            function populateYearDropdown() {
-                const currentYear = new Date().getFullYear();
-                const yearSelect = $('#yearSelect');
-                
-                if (yearSelect.length) {
-                    for (let year = currentYear; year >= 1950; year--) {
-                        yearSelect.append($('<option>', {
-                            value: year,
-                            text: year
-                        }));
-                    }
-                }
             }
             
             // Function to load data for a specific date (placeholder)

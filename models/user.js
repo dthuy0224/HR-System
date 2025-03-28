@@ -14,6 +14,8 @@ var UserSchema = new Schema({
   Skills: [String],
   designation: String,
   dateAdded: { type: Date },
+  resetPasswordToken: String,
+  resetPasswordExpires: Date
 });
 
 UserSchema.methods.encryptPassword = function (password) {

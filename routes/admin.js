@@ -614,4 +614,109 @@ router.post("/mark-attendance", async (req, res) => {
   }
 });
 
+/**
+ * View pending attendance edit requests
+ */
+router.get('/attendance-edit-requests', async (req, res) => {
+  try {
+    // Find all attendance records with pending edit requests
+    const records = await Attendance.find({
+      'editRequest.requested': true,
+      'editRequest.status': 'pending'
+    })
+    .populate('employeeID')
+    .sort({year: -1, month: -1, date: -1});
+    
+    res.render('Admin/attendanceEditRequests', {
+      title: 'Attendance Edit Requests',
+      records: records,
+      csrfToken: req.csrfToken(),
+      userName: req.user.name,
+      moment: moment
+    });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send("Error fetching edit requests");
+  }
+});
+
+/**
+ * Process attendance edit request (approve/reject)
+ */
+router.post('/process-edit-request', async (req, res) => {
+  const { attendanceId, action, managerNotes } = req.body;
+  
+  if (!attendanceId || !action) {
+    return res.status(400).send("Missing required information");
+  }
+  
+  try {
+    const attendance = await Attendance.findById(attendanceId);
+    
+    if (!attendance) {
+      return res.status(404).send("Attendance record not found");
+    }
+    
+    if (action === 'approve') {
+      attendance.editRequest.status = 'approved';
+      attendance.edited = true;
+      
+      // If additional fields to edit were provided
+      if (req.body.checkInTime) {
+        attendance.checkInTime = new Date(req.body.checkInTime);
+      }
+      
+      if (req.body.checkOutTime) {
+        attendance.checkOutTime = new Date(req.body.checkOutTime);
+        
+        // Recalculate work hours if both times are present
+        if (attendance.checkInTime) {
+          const checkIn = new Date(attendance.checkInTime);
+          const checkOut = new Date(attendance.checkOutTime);
+          
+          // Calculate work hours
+          const diffMs = checkOut - checkIn;
+          const diffHrs = diffMs / (1000 * 60 * 60);
+          attendance.workHours = parseFloat(diffHrs.toFixed(2));
+          
+          // Calculate overtime
+          if (attendance.workHours > 8) {
+            attendance.overtime = parseFloat((attendance.workHours - 8).toFixed(2));
+          } else {
+            attendance.overtime = 0;
+          }
+          
+          // Update status if needed
+          if (attendance.workHours >= 4 && attendance.workHours < 8) {
+            attendance.status = 'halfDay';
+          } else if (attendance.workHours >= 8 && attendance.overtime > 0) {
+            attendance.status = 'overtime';
+          }
+        }
+      }
+      
+      if (req.body.status) {
+        attendance.status = req.body.status;
+      }
+      
+      if (managerNotes) {
+        attendance.notes = managerNotes;
+      }
+      
+      attendance.editRequest.approvedBy = req.user._id;
+    } else if (action === 'reject') {
+      attendance.editRequest.status = 'rejected';
+      if (managerNotes) {
+        attendance.notes = managerNotes;
+      }
+    }
+    
+    await attendance.save();
+    return res.redirect('/admin/attendance-edit-requests');
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send("Error processing request");
+  }
+});
+
 module.exports = router;

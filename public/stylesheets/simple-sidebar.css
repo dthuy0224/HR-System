@@ -26,11 +26,12 @@
     height: 100%;
     margin-left: -250px;
     overflow-y: auto;
-    background: #000;
+    background: #2c3e50;
     -webkit-transition: all 0.5s ease;
     -moz-transition: all 0.5s ease;
     -o-transition: all 0.5s ease;
     transition: all 0.5s ease;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
 }
 
 #wrapper.toggled #sidebar-wrapper {
@@ -60,20 +61,40 @@
 }
 
 .sidebar-nav li {
-    text-indent: 20px;
-    line-height: 40px;
+    text-indent: 25px;
+    line-height: 45px;
+    margin: 5px 0;
+    position: relative;
 }
 
 .sidebar-nav li a {
     display: block;
     text-decoration: none;
-    color: #999999;
+    color: #ecf0f1;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    position: relative;
 }
 
 .sidebar-nav li a:hover {
     text-decoration: none;
     color: #fff;
-    background: rgba(255,255,255,0.2);
+    background: #34495e;
+    padding-left: 5px;
+    border-left: 4px solid #3498db;
+}
+
+.sidebar-nav li a.active {
+    color: #fff;
+    background: #2980b9;
+    padding-left: 5px;
+    border-left: 4px solid #e74c3c;
+    font-weight: 600;
+}
+
+.sidebar-nav li a.active:hover {
+    background: #2980b9;
+    border-left-color: #e74c3c;
 }
 
 .sidebar-nav li a:active,
@@ -81,18 +102,28 @@
     text-decoration: none;
 }
 
+/* Add specific style for active Dashboard item */
+.sidebar-nav li a.active[href*="dashboard"],
+.sidebar-nav li a.active[href*="Dashboard"] {
+    background: #2980b9;
+    border-left-color: #e74c3c;
+}
+
 .sidebar-nav > .sidebar-brand {
     height: 65px;
-    font-size: 18px;
+    font-size: 20px;
     line-height: 60px;
+    background: #34495e;
+    margin-bottom: 10px;
 }
 
 .sidebar-nav > .sidebar-brand a {
-    color: #999999;
+    color: #fff;
+    font-weight: 700;
 }
 
 .sidebar-nav > .sidebar-brand a:hover {
-    color: #fff;
+    color: #3498db;
     background: none;
 }
 

@@ -41,22 +41,19 @@ router.get("/", async function viewHomePage(req, res, next) {
         type: "employee"
       }),
       
-      // Count active projects
+      // Count all active projects (all projects except completed ones)
       Project.countDocuments({ 
-        status: "In Progress",
-        department: manager.department
+        status: { $ne: "Finished" }
       }),
 
       // Count completed projects
       Project.countDocuments({
-        status: "Completed",
-        department: manager.department
+        status: "Finished"
       }),
 
-      // Count in progress projects
+      // Count in progress projects specifically
       Project.countDocuments({
-        status: "In Progress",
-        department: manager.department
+        status: "Ongoing"
       }),
       
       // Count pending leaves for team
@@ -73,6 +70,9 @@ router.get("/", async function viewHomePage(req, res, next) {
         department: manager.department
       })
     ]);
+
+    // Debugging log
+    console.log(`Dashboard Statistics: Active: ${activeProjects}, Completed: ${completedProjects}, In Progress: ${inProgressProjects}`);
 
     res.render("Manager/managerHome", {
       title: "Manager Home",
@@ -120,10 +120,20 @@ router.get("/dashboard", function viewDashboard(req, res, next) {
       status: "Late"
     }),
     // Total employee count for calculating absent
-    User.countDocuments({ type: { $in: ["employee", "project_manager", "accounts_manager"] } })
+    User.countDocuments({ type: { $in: ["employee", "project_manager", "accounts_manager"] } }),
+    // Count active projects
+    Project.countDocuments({ 
+      status: "Ongoing",
+      employeeID: req.user._id
+    }),
+    // Count completed projects
+    Project.countDocuments({
+      status: "Finished",
+      employeeID: req.user._id
+    })
   ])
   .then(results => {
-    const [adminCount, managerCount, employeeCount, attendanceCount, lateCount, totalEmployeeCount] = results;
+    const [adminCount, managerCount, employeeCount, attendanceCount, lateCount, totalEmployeeCount, activeProjects, completedProjects] = results;
     
     // Calculate absent as total employees minus those present or late
     const absentCount = totalEmployeeCount - (attendanceCount + lateCount);
@@ -137,7 +147,9 @@ router.get("/dashboard", function viewDashboard(req, res, next) {
       employeeCount: employeeCount,
       attendanceCount: attendanceCount,
       lateCount: lateCount,
-      absentCount: absentCount
+      absentCount: absentCount,
+      activeProjects: activeProjects,
+      completedProjects: completedProjects
     });
   })
   .catch(err => {
@@ -429,7 +441,13 @@ router.get("/view-project/:project_id", function viewProject(req, res, next) {
   Project.findById(projectId, function getProject(err, project) {
     if (err) {
       console.log(err);
+      return res.status(500).send("Lỗi khi tải dự án");
     }
+    
+    if (!project) {
+      return res.status(404).send("Không tìm thấy dự án");
+    }
+    
     res.render("Manager/viewManagerProject", {
       title: "Project Details",
       project: project,
@@ -475,6 +493,74 @@ router.get(
       });
   }
 );
+
+/**
+ * Route hiển thị tất cả các dự án của manager
+ */
+router.get("/view-projects", function viewProjects(req, res, next) {
+  // Lấy tham số sắp xếp và lọc từ query
+  const sort = req.query.sort || 'startDate';
+  const statusFilter = req.query.status;
+  
+  // Định nghĩa cách sắp xếp
+  let sortOptions = {};
+  
+  switch(sort) {
+    case 'title':
+      sortOptions = { title: 1 }; // Sắp xếp theo tiêu đề tăng dần
+      break;
+    case 'type':
+      sortOptions = { type: 1 }; // Sắp xếp theo loại tăng dần
+      break;
+    case 'status':
+      sortOptions = { status: 1 }; // Sắp xếp theo trạng thái tăng dần
+      break;
+    case 'endDate':
+      sortOptions = { endDate: -1 }; // Sắp xếp theo ngày kết thúc giảm dần
+      break;
+    default:
+      sortOptions = { startDate: -1 }; // Mặc định sắp xếp theo ngày bắt đầu giảm dần
+  }
+  
+  // Xây dựng điều kiện lọc
+  let query = {};
+  
+  // Lọc theo trạng thái nếu được chỉ định
+  if (statusFilter) {
+    if (statusFilter === 'completed') {
+      query.status = 'Finished';
+    } else if (statusFilter === 'in-progress') {
+      query.status = 'Ongoing';
+    } else if (statusFilter === 'not-started') {
+      query.status = 'Not started';
+    }
+  }
+  
+  console.log("Đang truy vấn dự án...", "Lọc:", query);
+  
+  // Truy vấn dự án với điều kiện lọc
+  Project.find(query)
+    .sort(sortOptions)
+    .exec(function(err, projects) {
+      if (err) {
+        console.error("Error fetching projects:", err);
+        return res.status(500).send("Lỗi khi tải dự án");
+      }
+      
+      console.log(`Tìm thấy ${projects.length} dự án`);
+      
+      // Render template với dữ liệu
+      res.render("Manager/viewProjects", {
+        title: "Danh sách Dự án",
+        projects: projects,
+        csrfToken: req.csrfToken(),
+        userName: req.user.name,
+        moment: moment,
+        currentSort: sort,
+        statusFilter: statusFilter
+      });
+    });
+});
 
 /**
  * Description:
@@ -815,6 +901,221 @@ router.get("/view-employee-salaries", isAccountsManager, function viewEmployeeSa
 // Route chỉ dành cho Accounts Manager
 router.get("/generate-payslip/:id", isAccountsManager, function generatePayslip(req, res) {
   // Code xử lý tạo phiếu lương
+});
+
+/**
+ * Route để thêm mới dự án
+ */
+router.post("/add-project", function(req, res, next) {
+  const { title, type, status, startDate, endDate, description } = req.body;
+  
+  const newProject = new Project({
+    employeeID: req.user._id,
+    title,
+    type,
+    status,
+    description,
+    startDate: new Date(startDate),
+    endDate: new Date(endDate)
+  });
+  
+  newProject.save(function(err) {
+    if (err) {
+      console.error("Error saving project:", err);
+      req.flash("error", "Lỗi khi lưu dự án. Vui lòng thử lại.");
+      return res.redirect("/manager/view-projects");
+    }
+    
+    req.flash("success", "Dự án đã được tạo thành công");
+    res.redirect("/manager/view-projects");
+  });
+});
+
+/**
+ * Route để xóa dự án
+ */
+router.post("/delete-project", function(req, res, next) {
+  const { projectId } = req.body;
+  
+  if (!projectId) {
+    req.flash("error", "ID dự án không hợp lệ");
+    return res.redirect("/manager/view-projects");
+  }
+  
+  Project.findByIdAndRemove(projectId, function(err) {
+    if (err) {
+      console.error("Error deleting project:", err);
+      req.flash("error", "Lỗi khi xóa dự án. Vui lòng thử lại.");
+      return res.redirect("/manager/view-projects");
+    }
+    
+    req.flash("success", "Dự án đã được xóa thành công");
+    res.redirect("/manager/view-projects");
+  });
+});
+
+/**
+ * Route để mở form edit dự án
+ */
+router.get("/edit-project/:id", function(req, res, next) {
+  const projectId = req.params.id;
+  
+  Project.findById(projectId, function(err, project) {
+    if (err || !project) {
+      console.error("Error finding project:", err);
+      req.flash("error", "Không tìm thấy dự án");
+      return res.redirect("/manager/view-projects");
+    }
+    
+    res.render("Manager/editProject", {
+      title: "Edit Project",
+      project: project,
+      moment: moment,
+      csrfToken: req.csrfToken(),
+      userName: req.user.name
+    });
+  });
+});
+
+/**
+ * Route để cập nhật dự án
+ */
+router.post("/update-project/:id", function(req, res, next) {
+  const projectId = req.params.id;
+  const { title, type, status, startDate, endDate, description } = req.body;
+  
+  Project.findById(projectId, function(err, project) {
+    if (err || !project) {
+      console.error("Error finding project:", err);
+      req.flash("error", "Không tìm thấy dự án");
+      return res.redirect("/manager/view-projects");
+    }
+    
+    project.title = title;
+    project.type = type;
+    project.status = status;
+    project.description = description;
+    project.startDate = new Date(startDate);
+    project.endDate = new Date(endDate);
+    
+    project.save(function(err) {
+      if (err) {
+        console.error("Error updating project:", err);
+        req.flash("error", "Lỗi khi cập nhật dự án. Vui lòng thử lại.");
+        return res.redirect(`/manager/edit-project/${projectId}`);
+      }
+      
+      req.flash("success", "Dự án đã được cập nhật thành công");
+      res.redirect("/manager/view-projects");
+    });
+  });
+});
+
+/**
+ * View pending attendance edit requests
+ */
+router.get('/attendance-edit-requests', function(req, res) {
+  // Find all attendance records with pending edit requests
+  Attendance.find({
+    'editRequest.requested': true,
+    'editRequest.status': 'pending'
+  })
+  .populate('employeeID')
+  .sort({year: -1, month: -1, date: -1})
+  .exec(function(err, records) {
+    if (err) {
+      console.log(err);
+      return res.status(500).send("Error fetching edit requests");
+    }
+    
+    res.render('Manager/attendanceEditRequests', {
+      title: 'Attendance Edit Requests',
+      records: records,
+      csrfToken: req.csrfToken(),
+      userName: req.user.name,
+      moment: moment
+    });
+  });
+});
+
+/**
+ * Process attendance edit request (approve/reject)
+ */
+router.post('/process-edit-request', function(req, res) {
+  const { attendanceId, action, managerNotes } = req.body;
+  
+  if (!attendanceId || !action) {
+    return res.status(400).send("Missing required information");
+  }
+  
+  Attendance.findById(attendanceId, function(err, attendance) {
+    if (err || !attendance) {
+      return res.status(404).send("Attendance record not found");
+    }
+    
+    if (action === 'approve') {
+      attendance.editRequest.status = 'approved';
+      attendance.edited = true;
+      
+      // If additional fields to edit were provided
+      if (req.body.checkInTime) {
+        attendance.checkInTime = new Date(req.body.checkInTime);
+      }
+      
+      if (req.body.checkOutTime) {
+        attendance.checkOutTime = new Date(req.body.checkOutTime);
+        
+        // Recalculate work hours if both times are present
+        if (attendance.checkInTime) {
+          const checkIn = new Date(attendance.checkInTime);
+          const checkOut = new Date(attendance.checkOutTime);
+          
+          // Calculate work hours
+          const diffMs = checkOut - checkIn;
+          const diffHrs = diffMs / (1000 * 60 * 60);
+          attendance.workHours = parseFloat(diffHrs.toFixed(2));
+          
+          // Calculate overtime
+          if (attendance.workHours > 8) {
+            attendance.overtime = parseFloat((attendance.workHours - 8).toFixed(2));
+          } else {
+            attendance.overtime = 0;
+          }
+          
+          // Update status if needed
+          if (attendance.workHours >= 4 && attendance.workHours < 8) {
+            attendance.status = 'halfDay';
+          } else if (attendance.workHours >= 8 && attendance.overtime > 0) {
+            attendance.status = 'overtime';
+          }
+        }
+      }
+      
+      if (req.body.status) {
+        attendance.status = req.body.status;
+      }
+      
+      if (managerNotes) {
+        attendance.notes = managerNotes;
+      }
+      
+      attendance.editRequest.approvedBy = req.user._id;
+    } else if (action === 'reject') {
+      attendance.editRequest.status = 'rejected';
+      if (managerNotes) {
+        attendance.notes = managerNotes;
+      }
+    }
+    
+    attendance.save(function(err) {
+      if (err) {
+        console.log(err);
+        return res.status(500).send("Error processing request");
+      }
+      
+      return res.redirect('/manager/attendance-edit-requests');
+    });
+  });
 });
 
 module.exports = router;

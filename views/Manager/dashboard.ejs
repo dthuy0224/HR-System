@@ -109,7 +109,7 @@
                                         </div>
                                         <div class="stat-card-info">
                                             <h2>Active Projects</h2>
-                                            <div class="stat-number">0</div>
+                                            <div class="stat-number"><%= activeProjects %></div>
                                             <a href="/manager/view-projects" class="view-details">View Details <i class="fa fa-arrow-circle-right"></i></a>
                                         </div>
                                     </div>
@@ -156,12 +156,12 @@
                                                 <li>
                                                     <i class="fa fa-check-circle status-icon complete"></i>
                                                     <span class="status-text">Completed Projects</span>
-                                                    <span class="badge">0</span>
+                                                    <span class="badge"><%= completedProjects %></span>
                                                 </li>
                                                 <li>
                                                     <i class="fa fa-spinner status-icon progress"></i>
                                                     <span class="status-text">In Progress Projects</span>
-                                                    <span class="badge">0</span>
+                                                    <span class="badge"><%= activeProjects %></span>
                                                 </li>
                                             </ul>
                                             <a href="/manager/view-projects" class="view-all-link">View All Projects <i class="fa fa-arrow-circle-right"></i></a>

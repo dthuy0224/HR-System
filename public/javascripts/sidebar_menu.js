@@ -1,9 +1,9 @@
 $("#menu-toggle").click(function(e) {
     e.preventDefault();
-    $("#wrapper").toggleClass("toggled-2");
+    $("#wrapper").toggleClass("toggled");
     
     // Xử lý đặc biệt khi thu gọn sidebar
-    if ($("#wrapper").hasClass("toggled-2")) {
+    if ($("#wrapper").hasClass("toggled")) {
         // Ẩn tất cả submenu
         $('#menu ul').hide();
         
@@ -83,7 +83,7 @@ $("#menu-toggle").click(function(e) {
 $("#menu-toggle-2").click(function(e) {
     e.preventDefault();
     $("#wrapper").toggleClass("toggled-2");
-    $('#menu ul').hide();
+    $('.menu-collapsed').toggleClass("d-none");
 });
 
 function ensureDashboardExists() {
@@ -112,90 +112,198 @@ function ensureDashboardExists() {
 
 function initMenu() {
     $('#menu ul').hide();
-    $('#menu ul').children('.current').parent().show();
     
-    ensureDashboardExists();
-
-    $('#menu li a').off('click').on('click', function(e) {
-        if ($(this).attr('onclick')) {
-            // Đảm bảo Dashboard vẫn active
-            $('#menu li:first-child').addClass('active');
-            // Để event bubbling xử lý modal
-            return true;
-        }
-        
+    $('#menu li a').click(function() {
         var checkElement = $(this).next();
         
-        // Xử lý submenu (như trong Employees)
-        if (checkElement.is('ul')) {
-            if (checkElement.is(':visible')) {
-                checkElement.slideUp('normal');
-                return false;
-            }
-            
-            if (!checkElement.is(':visible')) {
-                $('#menu ul:visible').slideUp('normal');
-                checkElement.slideDown('normal');
-                return false;
-            }
+        if((checkElement.is('ul')) && (checkElement.is(':visible'))) {
+            return false;
         }
         
-        // Nếu menu item không phải là Dashboard, thêm class active cho nó
-        // nhưng vẫn giữ Dashboard active
-        if (!$(this).closest('li').is(':first-child')) {
-            $('#menu li').not(':first-child').removeClass('active');
-            $(this).closest('li').addClass('active');
+        if((checkElement.is('ul')) && (!checkElement.is(':visible'))) {
+            $('#menu ul:visible').slideUp('normal');
+            checkElement.slideDown('normal');
+            return false;
         }
-    });
-    
-    // Đặc biệt xử lý cho Dashboard
-    $('#menu li:first-child a').click(function() {
-        $('#menu li').not(':first-child').removeClass('active');
-        $(this).parent().addClass('active');
     });
 }
 
 $(document).ready(function() {
-    // Khởi tạo menu
-    initMenu();
+    // Ensure Dashboard exists and is first item
+    function ensureDashboard() {
+        var path = window.location.pathname;
+        var dashboardUrl = '/admin/';
+        
+        // Determine correct dashboard URL based on role
+        if (path.startsWith('/manager/')) {
+            dashboardUrl = '/manager/';
+        } else if (path.startsWith('/employee/')) {
+            dashboardUrl = '/employee/';
+        }
+        
+        // Check if Dashboard exists
+        var dashboardExists = false;
+        var firstMenuItem = $('#menu li:first-child a');
+        if (firstMenuItem.length) {
+            dashboardExists = firstMenuItem.text().trim().indexOf('Dashboard') !== -1;
+        }
+        
+        // Add Dashboard if it doesn't exist
+        if (!dashboardExists) {
+            var dashboardItem = $('<li><a href="' + dashboardUrl + '"><span class="fa-stack fa-lg pull-left"><i class="fa fa-tachometer fa-stack-1x"></i></span> Dashboard</a></li>');
+            $('#menu').prepend(dashboardItem);
+        }
+    }
     
-    // MutationObserver để theo dõi các thay đổi trong DOM
-    // và đảm bảo Dashboard luôn tồn tại khi DOM thay đổi
-    if (typeof MutationObserver !== 'undefined') {
-        var observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'childList') {
-                    ensureDashboardExists();
+    // Initialize menu state
+    $('#menu ul').hide();
+    ensureDashboard();
+    
+    // Handle menu item clicks
+    $('#menu li a').click(function(e) {
+        var $this = $(this);
+        var href = $this.attr('href');
+        var hasSubmenu = $this.next('ul').length > 0;
+        
+        ensureDashboard(); // Ensure Dashboard exists before any action
+        
+        // Handle submenu toggles
+        if (hasSubmenu) {
+            e.preventDefault();
+            e.stopPropagation();
+            var submenu = $this.next('ul');
+            
+            // Toggle submenu
+            if (submenu.is(':visible')) {
+                submenu.slideUp('normal');
+            } else {
+                $('#menu ul:visible').slideUp('normal');
+                submenu.slideDown('normal');
+            }
+            
+            // Update active states
+            if (!$this.closest('li').hasClass('active')) {
+                $('#menu li:not(:first-child)').removeClass('active');
+                $('#menu li a:not(:first)').removeClass('active');
+                $this.addClass('active');
+                $this.parent('li').addClass('active');
+            }
+            return false;
+        }
+        // Handle regular menu items (not modal triggers or toggles)
+        else if (href && href !== '#' && !$this.attr('onclick')) {
+            // Keep Dashboard's active state separate
+            var isDashboard = $this.closest('li').is(':first-child');
+            
+            if (!isDashboard) {
+                $('#menu li:not(:first-child)').removeClass('active');
+                $('#menu li a:not(:first)').removeClass('active');
+            }
+            
+            // Add active class to clicked item
+            $this.addClass('active');
+            $this.parent('li').addClass('active');
+            
+            // If this is a submenu item, keep parent active
+            var parentUl = $this.closest('ul');
+            if (parentUl.hasClass('nav-stacked') && !parentUl.is('#menu')) {
+                parentUl.parent('li').addClass('active');
+            }
+        }
+    });
+    
+    // Set initial active state based on current URL
+    function setActiveMenuItem() {
+        var path = window.location.pathname;
+        ensureDashboard(); // Ensure Dashboard exists
+        
+        // Reset all active states except Dashboard
+        $('#menu li:not(:first-child)').removeClass('active');
+        $('#menu li a:not(:first)').removeClass('active');
+        
+        var found = false;
+        
+        // First try to find exact match
+        $('#menu li a').each(function() {
+            var href = $(this).attr('href');
+            if (href && href !== '#' && !$(this).attr('onclick') && path === href) {
+                $(this).addClass('active');
+                $(this).parent('li').addClass('active');
+                
+                // Handle submenu items
+                var parentUl = $(this).closest('ul');
+                if (parentUl.hasClass('nav-stacked') && !parentUl.is('#menu')) {
+                    parentUl.show();
+                    parentUl.parent('li').addClass('active');
                 }
-            });
+                found = true;
+                return false;
+            }
         });
         
-        // Bắt đầu quan sát
+        // If no exact match, try partial match
+        if (!found) {
+            $('#menu li a').each(function() {
+                var href = $(this).attr('href');
+                if (href && href !== '#' && !$(this).attr('onclick') && path.startsWith(href) && href !== '/') {
+                    $(this).addClass('active');
+                    $(this).parent('li').addClass('active');
+                    
+                    // Handle submenu items
+                    var parentUl = $(this).closest('ul');
+                    if (parentUl.hasClass('nav-stacked') && !parentUl.is('#menu')) {
+                        parentUl.show();
+                        parentUl.parent('li').addClass('active');
+                    }
+                    found = true;
+                    return false;
+                }
+            });
+        }
+        
+        // For root paths, activate Dashboard
+        if (!found && (path === '/' || path === '/admin/' || path === '/manager/' || path === '/employee/')) {
+            $('#menu > li:first-child > a').addClass('active');
+            $('#menu > li:first-child').addClass('active');
+        }
+    }
+    
+    // Set initial active state
+    setActiveMenuItem();
+    
+    // Handle sidebar toggle
+    $("#menu-toggle, #menu-toggle-2").click(function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var isSecondToggle = $(this).attr('id') === 'menu-toggle-2';
+        
+        $("#wrapper").toggleClass(isSecondToggle ? "toggled-2" : "toggled");
+        if (isSecondToggle) {
+            $('.menu-collapsed').toggleClass("d-none");
+        }
+        
+        if ($("#wrapper").hasClass("toggled") || $("#wrapper").hasClass("toggled-2")) {
+            $('#menu ul').hide();
+        }
+        
+        ensureDashboard(); // Ensure Dashboard exists after toggle
+    });
+    
+    // Fix for modals
+    $('.modal').on('show.bs.modal hide.bs.modal', function(e) {
+        e.stopPropagation();
+        ensureDashboard(); // Ensure Dashboard exists when showing/hiding modals
+    });
+    
+    // Watch for DOM changes
+    if (typeof MutationObserver !== 'undefined') {
+        var observer = new MutationObserver(function(mutations) {
+            ensureDashboard();
+        });
+        
         observer.observe(document.getElementById('menu'), {
             childList: true,
             subtree: true
         });
     }
-    
-    // Fix cho các trang có modal
-    $('.modal').on('show.bs.modal hide.bs.modal', function(e) {
-        // Ngăn chặn việc thay đổi trạng thái active của menu
-        e.stopPropagation();
-        
-        // Đảm bảo Dashboard vẫn active
-        setTimeout(function() {
-            ensureDashboardExists();
-        }, 10);
-    });
-    
-    // Interval để kiểm tra định kỳ và đảm bảo Dashboard luôn hiển thị
-    // Đây là giải pháp dự phòng cho các trường hợp khó xác định
-    setInterval(function() {
-        ensureDashboardExists();
-    }, 500);
-    
-    // Đặc biệt xử lý cho các sự kiện AJAX
-    $(document).ajaxComplete(function() {
-        ensureDashboardExists();
-    });
 });
