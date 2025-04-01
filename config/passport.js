@@ -117,8 +117,11 @@ passport.use(
       }
       try {
         let user = await User.findOne({ email: email });
-        if (!user || !user.validPassword(password)) {
-          return done(null, false, { message: "Incorrect email or password" });
+        if (!user) {
+          return done(null, false, { message: "Email không tồn tại trong hệ thống" });
+        }
+        if (!user.validPassword(password)) {
+          return done(null, false, { message: "Mật khẩu không chính xác" });
         }
         return done(null, user);
       } catch (err) {
