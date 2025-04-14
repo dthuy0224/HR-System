@@ -6,24 +6,56 @@
   position: relative;
   margin-right: 50px;
 }
+.nav-item{
+  text-decoration: none;
+  color: #000;
+  font-size: 22px;
+  font-weight: bold;
+  margin-left: -10px;
+  margin-top: 10px;
+}
+.nav-item:hover {
+  color: #8ed4a4;
+  transition: color 0.3s ease-in-out;
+}
+.nav-item.active {
+  color: #8ed4a4;
+  font-weight: bold;
+}
+.nav-item.active:hover {
+  color: #8ed4a4;
+  transition: color 0.3s ease-in-out;
+}
+.nav-item.active::after {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 2px;
+  background-color: #8ed4a4;
+  position: absolute;
+  bottom: -5px; /* Adjust this value to position the line */
+  left: 0;
+}
+
 
 .profile-card {
   width: 280px;
-  height: 470px;
+  height: 500px;
   background-color: #dff1fb;
   border-radius: 16px;
   padding-bottom: 20px;
   text-align: center;
   position: relative;
   overflow: hidden;
-  margin-left: 20px;
+  margin-right: 15px;
+  margin-left: -160px;
   margin-top: 100px;
 }
 
 .half-card {
   background-color: #000;
   width: 100%;
-  height: 120px; /* hoặc chiều cao tùy chỉnh */
+  height: 170px; /* hoặc chiều cao tùy chỉnh */
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
   position: relative;
@@ -35,7 +67,7 @@
   object-fit: cover;
   border-radius: 50%;
   border: 5px solid #8ed4a4;
-  margin: 50px auto 10px;
+  margin: 100px auto 10px;
 
 }
 
@@ -49,7 +81,7 @@
   font-size: 13px;
   font-weight: bold;
   border-radius: 20px;
-  padding: 4px 10px;
+  padding: 10px 50px;
 }
 
 
@@ -107,7 +139,7 @@
   background-color: #c8ebff; 
   padding: 20px;
   border-radius: 0px;
-  margin-top: 20px;
+  margin-top: 50px;
   height: 95px; 
 }
 
