@@ -8,10 +8,8 @@ const moment = require("moment");
 const Leave = require("../models/leave");
 const Attendance = require("../models/attendance");
 const { isLoggedIn, isAdmin } = require("./middleware");
-
-router.use("/", isLoggedIn, isAdmin, function isAuthenticated(req, res, next) {
-  next();
-});
+const locations = require('../helpers/locations');
+const upload = require('../middleware/fileUpload');
 
 /**
  * Dashboard route for admin
@@ -77,6 +75,11 @@ router.get("/dashboard", async function viewDashboard(req, res, next) {
 // Displays home page to the admin
 router.get("/", async function viewHome(req, res, next) {
   try {
+    // Kiểm tra xem user đã đăng nhập chưa
+    if (!req.user) {
+      return res.redirect('/');  // Redirect về trang login nếu chưa đăng nhập
+    }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -119,7 +122,7 @@ router.get("/", async function viewHome(req, res, next) {
       csrfToken: req.csrfToken(),
       userName: req.user.name,
       totalEmployees,
-      totalManagers,
+      totalManagers, 
       totalProjects,
       todayAttendance,
       pendingLeaves,
@@ -133,29 +136,118 @@ router.get("/", async function viewHome(req, res, next) {
 });
 
 /**
- * Sorts the list of employees in User Schema.
- * Such that latest records are shown first.
- * Then displays list of all employees to the admin.
+ * Route to fetch employees with search, sort and pagination
  */
-router.get("/view-all-employees", async (req, res, next) => {
+router.get('/view-all-employees', async (req, res) => {
   try {
-    const users = await User.find({
-      $or: [
-        { type: "employee" },
-        { type: "project_manager" },
-        { type: "accounts_manager" },
-      ],
-    }).sort({ _id: -1 });
+    const { search = '', sort = 'asc', page = 1 } = req.query;
+    const limit = 10; // items per page
+    const skip = (page - 1) * limit;
 
-    res.render("Admin/viewAllEmployee", {
-      title: "All Employees",
-      csrfToken: req.csrfToken(),
+    // Build query for search
+    const query = search ? {
+      $or: [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { type: { $regex: search, $options: 'i' } },
+        { department: { $regex: search, $options: 'i' } }
+      ]
+    } : {};
+
+    // Get total count for pagination
+    const total = await User.countDocuments(query);
+    const totalPages = Math.ceil(total / limit);
+
+    // Fetch employees and sort by name
+    const users = await User.find(query)
+      .sort({ name: sort === 'asc' ? 1 : -1 })
+      .select('name email type department startDate') // Only select needed fields
+      .skip(skip)
+      .limit(limit);
+
+    res.render('Admin/viewAllEmployee', {
+      title: 'View Employees',
       users,
+      csrfToken: req.csrfToken(),
       userName: req.user.name,
+      moment,
+      pagination: {
+        page: parseInt(page),
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      },
+      search,
+      sort
     });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Error retrieving employees");
+    console.error('Error fetching employees:', err);
+    res.status(500).send('Error fetching employees');
+  }
+});
+
+// Export employees list
+router.get('/export-employees', async (req, res) => {
+  try {
+    const { format } = req.query;
+    const users = await User.find({}).sort({ name: 1 });
+
+    if (format === 'pdf') {
+      // Generate PDF using PDFKit
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument();
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=employees.pdf');
+      
+      doc.pipe(res);
+      doc.fontSize(16).text('Employees List', { align: 'center' });
+      doc.moveDown();
+
+      users.forEach((user, index) => {
+        doc.fontSize(12).text(`${index + 1}. ${user.name} - ${user.email} (${user.department || 'N/A'})`);
+        doc.moveDown(0.5);
+      });
+
+      doc.end();
+
+    } else if (format === 'excel') {
+      // Generate Excel using ExcelJS
+      const Excel = require('exceljs');
+      const workbook = new Excel.Workbook();
+      const worksheet = workbook.addWorksheet('Employees');
+
+      worksheet.columns = [
+        { header: 'ID', key: 'id', width: 5 },
+        { header: 'Name', key: 'name', width: 20 },
+        { header: 'Email', key: 'email', width: 30 },
+        { header: 'Role', key: 'type', width: 15 },
+        { header: 'Department', key: 'department', width: 20 },
+        { header: 'Start Date', key: 'createdAt', width: 15 }
+      ];
+
+      users.forEach((user, index) => {
+        worksheet.addRow({
+          id: index + 1,
+          name: user.name,
+          email: user.email,
+          type: user.type,
+          department: user.department || 'N/A',
+          createdAt: moment(user.createdAt).format('DD/MM/YYYY')
+        });
+      });
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=employees.xlsx');
+
+      await workbook.xlsx.write(res);
+      res.end();
+    }
+
+  } catch (err) {
+    console.error('Error exporting employees:', err);
+    res.status(500).send('Error exporting employees');
   }
 });
 
@@ -240,12 +332,12 @@ router.get("/view-profile", async (req, res, next) => {
 });
 
 // Displays add employee form to the admin.
-router.get("/add-employee", (req, res, next) => {
+router.get("/add-employee", isLoggedIn, isAdmin, (req, res, next) => {
   const { name } = req.user;
   const messages = req.flash("error");
 
   res.render("Admin/addEmployee", {
-    title: "Add Employee",
+    title: "Add New Employee",
     csrfToken: req.csrfToken(),
     user: config_passport.User,
     messages,
@@ -463,6 +555,7 @@ router.get("/view-attendance-current", async (req, res, next) => {
 // Then redirects admin to the profile information page of the added employee.
 router.post(
   "/add-employee",
+  upload.single('profileImage'), // Handle single file upload
   passport.authenticate("local.add-employee", {
     successRedirect: "/admin/redirect-employee-profile",
     failureRedirect: "/admin/add-employee",
@@ -717,6 +810,54 @@ router.post('/process-edit-request', async (req, res) => {
     console.log(err);
     return res.status(500).send("Error processing request");
   }
+});
+
+router.get("/get-supervisors", async (req, res) => {
+  try {
+    const supervisors = await User.find({
+      type: { $in: ["project_manager", "accounts_manager"] },
+      isActive: true
+    }).select('_id name');
+    res.json(supervisors);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error fetching supervisors" });
+  }
+});
+
+router.get("/get-next-job-id/:dept", async (req, res) => {
+  try {
+    const { dept } = req.params;
+    // Get all job IDs starting with dept code
+    const pattern = `^${dept}\\d{3}$`;
+    const existingIds = await User.find({
+      jobId: { $regex: pattern }
+    }).select('jobId');
+
+    // Get max sequence number
+    let maxSeq = 0;
+    existingIds.forEach(user => {
+      const seq = parseInt(user.jobId.substring(3));
+      if (seq > maxSeq) maxSeq = seq;
+    });
+
+    // Generate next ID
+    const nextId = `${dept}${String(maxSeq + 1).padStart(3, '0')}`;
+    res.json({ jobId: nextId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error generating job ID" });
+  }
+});
+
+router.get("/get-cities", (req, res) => {
+  const cities = locations.getCities();
+  res.json(cities);
+});
+
+router.get("/get-districts/:city", (req, res) => {
+  const districts = locations.getDistricts(req.params.city);
+  res.json(districts);
 });
 
 module.exports = router;

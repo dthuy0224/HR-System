@@ -2,6 +2,7 @@ const { expect } = require("@jest/globals");
 const db = require("../../db");
 const cheerio = require("cheerio");
 const User = require("../../models/user");
+const bcrypt = require("bcryptjs");
 
 describe("Admin Routes", () => {
   test("GET / should render admin home page", async () => {
@@ -51,5 +52,38 @@ describe("Admin Routes", () => {
 
     expect(title.trim()).toBe("HRMS|Employee Profile");
     expect(_employeeName.trim()).toBe(employeeName);
+  });
+
+  beforeAll(async () => {
+    await db.connect();
+    await User.create({
+      type: "admin",
+      email: "admin@admin.com",
+      password: bcrypt.hashSync("admin123", bcrypt.genSaltSync(5), null),
+      name: "Admin Admin",
+      firstName: "Admin",
+      lastName: "Admin",
+      dateOfBirth: new Date("1980-05-26"),
+      contactNumber: "0912345678", // Đúng định dạng VN
+      gender: "Male",
+      department: "HR",
+      jobTitle: "Administrator",
+      jobId: "ADM001",
+      idNumber: "123456789012",
+      employmentType: "Full-time",
+      startDate: new Date("2020-01-01"),
+      address: {
+        city: "Hanoi",
+        district: "Ba Dinh",
+        details: "1 Main Street"
+      },
+      birthplace: {
+        city: "Hanoi"
+      },
+      isActive: true,
+      profileImage: "",
+      Skills: []
+    });
+    await db.close();
   });
 });

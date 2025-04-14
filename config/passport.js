@@ -11,6 +11,7 @@
 let passport = require("passport");
 let User = require("../models/user");
 let LocalStrategy = require("passport-local").Strategy;
+const path = require('path');
 
 
 // Passport's serializeUser method is used to determine which data of the user object should be stored in the session.
@@ -48,47 +49,84 @@ passport.use(
       passReqToCallback: true,
     },
     async function (req, email, password, done) {
+      // Validate required fields
       req.checkBody("email", "Invalid email").notEmpty().isEmail();
-      req
-        .checkBody("password", "Invalid password")
-        .notEmpty()
-        .isLength({ min: 6 });
-      let errors = req.validationErrors();
+      req.checkBody("password", "Password must be at least 6 characters").notEmpty().isLength({ min: 6 });
+      req.checkBody("firstName", "First name must contain only letters").notEmpty().matches(/^[A-Za-zÀ-ỹ\s]+$/);
+      req.checkBody("lastName", "Last name must contain only letters").notEmpty().matches(/^[A-Za-zÀ-ỹ\s]+$/);
+      req.checkBody("DOB", "Date of birth is required").notEmpty().custom((value) => {
+        const dob = new Date(value);
+        const age = new Date().getFullYear() - dob.getFullYear();
+        return age >= 18 && age <= 60 && dob.getFullYear() >= 1965;
+      });
+      req.checkBody("number", "Invalid phone number format").notEmpty().matches(/^(0|\+84)\d{9,10}$/);
+      req.checkBody("jobTitle", "Job title is required").notEmpty();
+      req.checkBody("department", "Department is required").notEmpty();
+      req.checkBody("jobId", "Job ID must be 3 uppercase letters followed by 3 digits").notEmpty().matches(/^[A-Z]{3}\d{3}$/);
+      req.checkBody("startDate", "Start date cannot be in the future").notEmpty().custom((value) => {
+        return new Date(value) <= new Date();
+      });
+      req.checkBody("gender", "Gender must be either Male or Female").notEmpty().isIn(['Male', 'Female']);
+      req.checkBody("workExperience", "Work experience must be Fresher, Junior, or Senior").notEmpty().isIn(['Fresher', 'Junior', 'Senior']);
+      req.checkBody("addressCity", "City is required").notEmpty();
+      req.checkBody("addressDistrict", "District is required").notEmpty();
+      req.checkBody("addressDetails", "Address details must be at least 10 characters").notEmpty().isLength({ min: 10 });
+      req.checkBody("birthplace", "Birthplace is required").notEmpty();
+      req.checkBody("idNumber", "ID number must be exactly 12 digits").notEmpty().matches(/^\d{12}$/);
+      req.checkBody("employmentType", "Employment type must be Full-time, Part-time, or Intern").notEmpty().isIn(['Full-time', 'Part-time', 'Intern']);
+
+      const errors = req.validationErrors();
       if (errors) {
-        let messages = [];
-        errors.forEach(function (error) {
+        const messages = [];
+        errors.forEach((error) => {
           messages.push(error.msg);
         });
         return done(null, false, req.flash("error", messages));
       }
+
       try {
-        let user = await User.findOne({ email: email });
-        if (user) {
+        // Check if email already exists
+        const existingUser = await User.findOne({ email: email });
+        if (existingUser) {
           return done(null, false, { message: "Email is already in use" });
         }
 
+        // Check if jobId already exists
+        const existingJobId = await User.findOne({ jobId: req.body.jobId });
+        if (existingJobId) {
+          return done(null, false, { message: "Job ID is already in use" });
+        }
 
-        let newUser = new User();
+        // Check if idNumber already exists
+        const existingIdNumber = await User.findOne({ idNumber: req.body.idNumber });
+        if (existingIdNumber) {
+          return done(null, false, { message: "ID Number is already in use" });
+        }
+
+        // Create new user
+        const newUser = new User();
+        
+        // Account info
         newUser.email = email;
-        if (req.body.designation == "Accounts Manager") {
+        newUser.password = newUser.encryptPassword(password);
+        
+        // Set type based on jobTitle
+        if (req.body.jobTitle === "Accounts Manager") {
           newUser.type = "accounts_manager";
-        } else if (req.body.designation == "Project Manager") {
+        } else if (req.body.jobTitle === "Project Manager") {
           newUser.type = "project_manager";
         } else {
           newUser.type = "employee";
         }
-        newUser.password = newUser.encryptPassword(password);
+
+        // Personal info
         newUser.firstName = req.body.firstName;
         newUser.lastName = req.body.lastName;
         newUser.name = req.body.name;
         newUser.dateOfBirth = new Date(req.body.DOB);
         newUser.personalEmail = req.body.personalEmail;
-        newUser.position = req.body.position;
         newUser.contactNumber = req.body.number;
-        newUser.department = req.body.department;
-        newUser.employmentType = req.body.employmentType;
         newUser.gender = req.body.gender;
-        newUser.Skills = req.body["skills[]"];
         newUser.birthplace = {
           city: req.body.birthplace
         };
@@ -98,16 +136,20 @@ passport.use(
           details: req.body.addressDetails
         };
         newUser.idNumber = req.body.idNumber;
+
+        // Job info
         newUser.jobTitle = req.body.jobTitle;
         newUser.jobId = req.body.jobId;
+        newUser.department = req.body.department;
         newUser.workExperience = req.body.workExperience;
         newUser.supervisor = req.body.supervisor || null;
-        newUser.profileImage = req.body.profileImage || '';
-        newUser.isActive = true;
-        newUser.designation = req.body.designation;
         newUser.startDate = new Date(req.body.startDate);
+        
+        // Additional info
+        newUser.profileImage = req.file ? `/images/employees/${req.body.jobId}${path.extname(req.file.originalname)}` : '/images/default-avatar.png';
+        newUser.isActive = true;
         newUser.dateAdded = new Date();
-
+        newUser.employmentType = req.body.employmentType;
 
         await newUser.save();
         return done(null, newUser);
@@ -117,8 +159,6 @@ passport.use(
     }
   )
 );
-
-
 
 
 // This code sets up a local authentication strategy with Passport.js for signing in a user.
