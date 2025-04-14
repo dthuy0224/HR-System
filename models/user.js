@@ -3,6 +3,7 @@ var bcrypt = require("bcrypt-nodejs");
 require("mongoose-type-email");
 var Schema = mongoose.Schema;
 
+
 var UserSchema = new Schema({
   type: { type: String },
   email: { type: mongoose.SchemaTypes.Email, required: true, unique: true },
@@ -11,7 +12,7 @@ var UserSchema = new Schema({
     type: String,
     required: true,
     maxlength: 50,
-    match: /^[A-Za-zÀ-ỹ\s]+$/, 
+    match: /^[A-Za-zÀ-ỹ\s]+$/,
     set: v => v.charAt(0).toUpperCase() + v.slice(1).trim()
   },
   lastName: {
@@ -21,13 +22,13 @@ var UserSchema = new Schema({
     match: /^[A-Za-zÀ-ỹ\s]+$/,
     set: v => v.charAt(0).toUpperCase() + v.slice(1).trim()
   },
-  name: { 
-    type: String, 
+  name: {
+    type: String,
     maxlength: 100,
     set: v => v ? v.charAt(0).toUpperCase() + v.slice(1).trim() : '',
-    required: true 
+    required: true
   },
-  dateOfBirth: { 
+  dateOfBirth: {
     type: Date,
     required: true,
     validate: {
@@ -38,7 +39,7 @@ var UserSchema = new Schema({
       message: 'Age must be between 18–60 and year ≥ 1965'
     }
   },
-  contactNumber: { 
+  contactNumber: {
     type: String,
     required: true,
     match: /^(0|\+84)(\d{9,10})$/
@@ -53,7 +54,7 @@ var UserSchema = new Schema({
   position: { type: String, required: true },
   department: { type: String, required: true },
   gender: { type: String, enum: ['Male', 'Female'], required: true },
-  
+ 
   birthplace: {
     city: { type: String, required: true }
   },
@@ -131,11 +132,16 @@ var UserSchema = new Schema({
   timestamps: true
 });
 
+
 UserSchema.methods.encryptPassword = function (password) {
   return bcrypt.hashSync(password, bcrypt.genSaltSync(5), null);
 };
+
 
 UserSchema.methods.validPassword = function (password) {
   return bcrypt.compareSync(password, this.password);
 };
 module.exports = mongoose.model("User", UserSchema);
+
+
+

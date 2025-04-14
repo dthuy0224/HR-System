@@ -7,15 +7,18 @@
  *
  */
 
+
 let passport = require("passport");
 let User = require("../models/user");
 let LocalStrategy = require("passport-local").Strategy;
+
 
 // Passport's serializeUser method is used to determine which data of the user object should be stored in the session.
 // Here, we are storing the user's id in the session.
 passport.serializeUser(function (user, done) {
   done(null, user.id);
 });
+
 
 // Passport's deserializeUser method is used to retrieve the user data from the database.
 // The user's id, which was stored in the session is used to find the user in the database.
@@ -28,6 +31,7 @@ passport.deserializeUser(async (id, done) => {
     done(err);
   }
 });
+
 
 // This code sets up a local authentication strategy with Passport.js for adding a new employee.
 // It first validates the email and password from the request body.
@@ -62,6 +66,7 @@ passport.use(
         if (user) {
           return done(null, false, { message: "Email is already in use" });
         }
+
 
         let newUser = new User();
         newUser.email = email;
@@ -103,6 +108,7 @@ passport.use(
         newUser.startDate = new Date(req.body.startDate);
         newUser.dateAdded = new Date();
 
+
         await newUser.save();
         return done(null, newUser);
       } catch (err) {
@@ -111,6 +117,8 @@ passport.use(
     }
   )
 );
+
+
 
 
 // This code sets up a local authentication strategy with Passport.js for signing in a user.
