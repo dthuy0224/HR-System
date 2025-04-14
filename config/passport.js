@@ -7,15 +7,18 @@
  *
  */
 
+
 let passport = require("passport");
 let User = require("../models/user");
 let LocalStrategy = require("passport-local").Strategy;
+
 
 // Passport's serializeUser method is used to determine which data of the user object should be stored in the session.
 // Here, we are storing the user's id in the session.
 passport.serializeUser(function (user, done) {
   done(null, user.id);
 });
+
 
 // Passport's deserializeUser method is used to retrieve the user data from the database.
 // The user's id, which was stored in the session is used to find the user in the database.
@@ -28,6 +31,7 @@ passport.deserializeUser(async (id, done) => {
     done(err);
   }
 });
+
 
 // This code sets up a local authentication strategy with Passport.js for adding a new employee.
 // It first validates the email and password from the request body.
@@ -63,6 +67,7 @@ passport.use(
           return done(null, false, { message: "Email is already in use" });
         }
 
+
         let newUser = new User();
         newUser.email = email;
         if (req.body.designation == "Accounts Manager") {
@@ -73,13 +78,36 @@ passport.use(
           newUser.type = "employee";
         }
         newUser.password = newUser.encryptPassword(password);
+        newUser.firstName = req.body.firstName;
+        newUser.lastName = req.body.lastName;
         newUser.name = req.body.name;
         newUser.dateOfBirth = new Date(req.body.DOB);
+        newUser.personalEmail = req.body.personalEmail;
+        newUser.position = req.body.position;
         newUser.contactNumber = req.body.number;
         newUser.department = req.body.department;
+        newUser.employmentType = req.body.employmentType;
+        newUser.gender = req.body.gender;
         newUser.Skills = req.body["skills[]"];
+        newUser.birthplace = {
+          city: req.body.birthplace
+        };
+        newUser.address = {
+          city: req.body.addressCity,
+          district: req.body.addressDistrict,
+          details: req.body.addressDetails
+        };
+        newUser.idNumber = req.body.idNumber;
+        newUser.jobTitle = req.body.jobTitle;
+        newUser.jobId = req.body.jobId;
+        newUser.workExperience = req.body.workExperience;
+        newUser.supervisor = req.body.supervisor || null;
+        newUser.profileImage = req.body.profileImage || '';
+        newUser.isActive = true;
         newUser.designation = req.body.designation;
+        newUser.startDate = new Date(req.body.startDate);
         newUser.dateAdded = new Date();
+
 
         await newUser.save();
         return done(null, newUser);
@@ -89,6 +117,9 @@ passport.use(
     }
   )
 );
+
+
+
 
 // This code sets up a local authentication strategy with Passport.js for signing in a user.
 // It first validates the email and password from the request body.
@@ -130,3 +161,6 @@ passport.use(
     }
   )
 );
+
+
+
