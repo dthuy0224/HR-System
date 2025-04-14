@@ -551,161 +551,185 @@ router.get("/view-attendance-current", async (req, res, next) => {
   }
 });
 
-// Adds employee to the User Schema by getting attributes from the body of the post request.
-// Then redirects admin to the profile information page of the added employee.
-router.post(
-  "/add-employee",
-  upload.single('profileImage'), // Handle single file upload
-  passport.authenticate("local.add-employee", {
-    successRedirect: "/admin/redirect-employee-profile",
-    failureRedirect: "/admin/add-employee",
-    failureFlash: true,
-  })
-);
-
-// Gets the id of the leave from the body of the post request.
-// Sets the response field of that leave according to response given by employee from body of the post request.
-router.post("/respond-application", async (req, res) => {
+/**
+ * View all attendance with improved real-time statistics
+ */
+router.get('/all-attendance', async (req, res) => {
   try {
-    const leave = await Leave.findById(req.body.leave_id);
-    leave.adminResponse = req.body.status;
-    await leave.save();
-    res.redirect("/admin/leave-applications");
-  } catch (err) {
-    console.log(err);
-  }
-});
+    const { month = new Date().getMonth() + 1, year = new Date().getFullYear() } = req.query;
+    
+    // Get all attendance records for the specified month
+    const attendances = await Attendance.find({
+      month: parseInt(month),
+      year: parseInt(year)
+    })
+    .populate('employeeID')
+    .sort({ date: -1, checkInTime: -1 });
 
-// Gets the id of the employee from the parameters.
-// Gets the edited fields of the project from body of the post request.
-// Saves the update field to the project of the employee  in Project Schema.
-// Edits the project of the employee.
-router.post("/edit-employee/:id", async (req, res) => {
-  const { id } = req.params;
-  const { email, designation, name, DOB, number, department, skills } =
-    req.body;
-  const newUser = {
-    email,
-    type:
-      designation === "Accounts Manager"
-        ? "accounts_manager"
-        : designation === "Project Manager"
-        ? "project_manager"
-        : "employee",
-    name,
-    dateOfBirth: new Date(DOB),
-    contactNumber: number,
-    department,
-    Skills: skills,
-    designation,
-  };
+    // Calculate detailed statistics
+    const stats = {
+      present: 0,
+      leave: 0,
+      late: 0,
+      onTime: 0,
+      halfDay: 0,
+      overtime: 0,
+      totalEarlyMinutes: 0,
+      totalLateMinutes: 0,
+      totalOvertimeHours: 0
+    };
 
-  try {
-    const user = await User.findById(id);
-    if (user.email !== email) {
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-        return res.render("Admin/editEmployee", {
-          title: "Edit Employee",
-          csrfToken: req.csrfToken(),
-          employee: newUser,
-          moment: moment,
-          message: "Email is already in use",
-          userName: req.user.name,
-        });
+    const totalRecords = attendances.length;
+
+    attendances.forEach(att => {
+      switch(att.status) {
+        case 'present':
+          stats.present++;
+          if (att.lateMinutes === 0) stats.onTime++;
+          break;
+        case 'late':
+          stats.late++;
+          break;
+        case 'leave':
+          stats.leave++;
+          break;
+        case 'halfDay':
+          stats.halfDay++;
+          break;
+        case 'overtime':
+          stats.overtime++;
+          break;
       }
-    }
-    Object.assign(user, newUser);
-    await user.save();
-    res.redirect(`/admin/employee-profile/${id}`);
-  } catch (err) {
-    console.log(err);
-    res.redirect("/admin/");
-  }
-});
 
-router.post("/add-employee-project/:id", async (req, res) => {
-  const { id } = req.params;
-  const { title, type, start_date, end_date, description, status } = req.body;
-  const newProject = new Project({
-    employeeID: id,
-    title,
-    type,
-    startDate: new Date(start_date),
-    endDate: new Date(end_date),
-    description,
-    status,
-  });
-
-  try {
-    await newProject.save();
-    res.redirect(`/admin/employee-project-info/${newProject._id}`);
-  } catch (err) {
-    console.log(err);
-  }
-});
-
-router.post("/edit-employee-project/:id", async (req, res) => {
-  const { id } = req.params;
-  const { title, type, start_date, end_date, description, status } = req.body;
-
-  try {
-    const project = await Project.findById(id);
-    project.title = title;
-    project.type = type;
-    project.startDate = new Date(start_date);
-    project.endDate = new Date(end_date);
-    project.description = description;
-    project.status = status;
-    await project.save();
-    res.redirect(`/admin/employee-project-info/${id}`);
-  } catch (err) {
-    console.log(err);
-  }
-});
-
-router.post("/delete-employee/:id", async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    await User.findByIdAndRemove(id);
-    res.redirect("/admin/view-all-employees");
-  } catch (err) {
-    console.log("unable to delete employee");
-  }
-});
-
-router.post("/mark-attendance", async (req, res) => {
-  const { _id } = req.user;
-  const currentDate = new Date();
-  const date = currentDate.getDate();
-  const month = currentDate.getMonth() + 1;
-  const year = currentDate.getFullYear();
-
-  try {
-    const attendance = await Attendance.find({
-      employeeID: _id,
-      date,
-      month,
-      year,
+      stats.totalEarlyMinutes += att.earlyMinutes || 0;
+      stats.totalLateMinutes += att.lateMinutes || 0;
+      stats.totalOvertimeHours += att.overtime || 0;
     });
 
-    if (attendance.length === 0) {
-      const newAttendance = new Attendance({
-        employeeID: _id,
-        year,
-        month,
-        date,
-        present: 1,
-      });
-      await newAttendance.save();
-    }
+    // Calculate percentages
+    const calculatePercentage = (value) => {
+      return totalRecords > 0 ? ((value / totalRecords) * 100).toFixed(1) : 0;
+    };
 
-    res.redirect("/admin/view-attendance-current");
+    stats.presentPercentage = calculatePercentage(stats.present);
+    stats.leavePercentage = calculatePercentage(stats.leave);
+    stats.latePercentage = calculatePercentage(stats.late);
+    stats.onTimePercentage = calculatePercentage(stats.onTime);
+
+    res.render('Admin/allAttendance', {
+      title: 'Attendance Management',
+      attendances,
+      stats,
+      month: parseInt(month),
+      year: parseInt(year),
+      moment,
+      workConfig: require('../config/workSchedule'),
+      csrfToken: req.csrfToken(),
+      userName: req.user.name
+    });
   } catch (err) {
-    console.log(err);
+    console.error('Error fetching attendance data:', err);
+    res.status(500).send('Error retrieving attendance data');
   }
 });
+
+/**
+ * Edit attendance record with real-time update
+ */
+router.post('/edit-attendance/:id', async (req, res) => {
+  try {
+    const attendance = await Attendance.findById(req.params.id);
+    if (!attendance) {
+      return res.status(404).send('Attendance record not found');
+    }
+
+    const { checkInTime, checkOutTime, status, notes } = req.body;
+
+    if (checkInTime) {
+      // Combine date from attendance with time from input
+      const date = new Date(attendance.year, attendance.month - 1, attendance.date);
+      const [hours, minutes] = checkInTime.split(':');
+      date.setHours(parseInt(hours), parseInt(minutes), 0);
+      attendance.checkInTime = date;
+    }
+
+    if (checkOutTime) {
+      const date = new Date(attendance.year, attendance.month - 1, attendance.date);
+      const [hours, minutes] = checkOutTime.split(':');
+      date.setHours(parseInt(hours), parseInt(minutes), 0);
+      attendance.checkOutTime = date;
+    }
+
+    if (status) {
+      attendance.status = status;
+    }
+
+    if (notes) {
+      attendance.notes = notes;
+    }
+
+    attendance.edited = true;
+    attendance.editedBy = req.user._id;
+    attendance.editedAt = new Date();
+
+    await attendance.save();
+
+    // Emit real-time update
+    if (req.app.io) {
+      // Recalculate stats
+      const month = attendance.month;
+      const year = attendance.year;
+      const stats = await calculateAttendanceStats(month, year);
+      
+      req.app.io.emit('attendanceUpdate', {
+        attendance: await attendance.populate('employeeID'),
+        stats
+      });
+    }
+    
+    // Redirect back
+    res.redirect(`/admin/all-attendance?month=${attendance.month}&year=${attendance.year}`);
+  } catch (err) {
+    console.error('Error updating attendance:', err);
+    res.status(500).send('Error updating attendance record');
+  }
+});
+
+// Helper function to calculate attendance statistics
+async function calculateAttendanceStats(month, year) {
+  const attendances = await Attendance.find({ month, year });
+  
+  const stats = {
+    present: 0,
+    leave: 0,
+    late: 0,
+    onTime: 0,
+    totalRecords: attendances.length
+  };
+
+  attendances.forEach(att => {
+    if (att.status === 'present') {
+      stats.present++;
+      if (att.lateMinutes === 0) stats.onTime++;
+    } else if (att.status === 'late') {
+      stats.late++;
+    } else if (att.status === 'leave') {
+      stats.leave++;
+    }
+  });
+
+  // Calculate percentages
+  const calculatePercentage = (value) => {
+    return stats.totalRecords > 0 ? ((value / stats.totalRecords) * 100).toFixed(1) : 0;
+  };
+
+  stats.presentPercentage = calculatePercentage(stats.present);
+  stats.leavePercentage = calculatePercentage(stats.leave);
+  stats.latePercentage = calculatePercentage(stats.late);
+  stats.onTimePercentage = calculatePercentage(stats.onTime);
+
+  return stats;
+}
 
 /**
  * View pending attendance edit requests

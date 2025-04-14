@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title><%= title %></title>
+    <%- include('../partials/header') %>
+    <style>
+        .stats-box {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            color: white;
+        }
+        .stats-box h3 {
+            font-size: 24px;
+            margin: 0;
+        }
+        .stats-box p {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+        }
+        .present-box { background-color: #28a745; }
+        .leave-box { background-color: #dc3545; }
+        .late-box { background-color: #ffc107; color: #333; }
+        .ontime-box { background-color: #17a2b8; }
+        .attendance-table { margin-top: 20px; }
+        .badge-present { background-color: #28a745; }
+        .badge-leave { background-color: #dc3545; }
+        .badge-late { background-color: #ffc107; color: #333; }
+        .filter-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .month-label {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .time-info {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .overtime-badge {
+            background-color: #17a2b8;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8em;
+        }
+        .early-badge {
+            background-color: #28a745;
+        }
+        .late-badge {
+            background-color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <%- include('../partials/admin-sidebar') %>
+
+    <div id="page-content-wrapper">
+        <div class="container-fluid xyz">
+            <div class="row">
+                <div class="col-lg-12">
+                    <!-- Real-time Clock -->
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="month-label">
+                            <i class="fa fa-calendar"></i> <%= moment().format('MMMM, YYYY') %>
+                        </div>
+                        <div class="current-time h4">
+                            <i class="fa fa-clock"></i> <span id="clock"></span>
+                        </div>
+                    </div>
+
+                    <!-- Work Schedule Info -->
+                    <div class="alert alert-info mb-4">
+                        <h5><i class="fa fa-info-circle"></i> Work Schedule</h5>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <strong>Work Hours:</strong> <%= workConfig.workHours.start %> - <%= workConfig.workHours.end %>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Late After:</strong> <%= workConfig.workHours.lateThreshold %>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Break Time:</strong> <%= workConfig.workHours.breakStart %> - <%= workConfig.workHours.breakEnd %>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Max Overtime:</strong> <%= workConfig.overtime.maxDuration %> hours
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Statistics Cards -->
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="stats-box present-box">
+                                <h3><%= stats.present %></h3>
+                                <p>Present</p>
+                                <div class="text-right">
+                                    <h4 id="presentPercent"><%= stats.presentPercentage %>%</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-box leave-box">
+                                <h3><%= stats.leave %></h3>
+                                <p>Leave</p>
+                                <div class="text-right">
+                                    <h4 id="leavePercent"><%= stats.leavePercentage %>%</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-box late-box">
+                                <h3><%= stats.late %></h3>
+                                <p>Late</p>
+                                <div class="text-right">
+                                    <h4 id="latePercent"><%= stats.latePercentage %>%</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stats-box ontime-box">
+                                <h3><%= stats.onTime %></h3>
+                                <p>On Time</p>
+                                <div class="text-right">
+                                    <h4 id="ontimePercent"><%= stats.onTimePercentage %>%</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Attendance Table -->
+                    <div class="attendance-table">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Check in</th>
+                                    <th>Check out</th>
+                                    <th>Work Hours</th>
+                                    <th>Status</th>
+                                    <th>Details</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendanceTableBody">
+                                <% attendances.forEach(function(attendance) { %>
+                                    <tr data-id="<%= attendance._id %>">
+                                        <td><%= attendance.employeeID ? attendance.employeeID._id : 'N/A' %></td>
+                                        <td><%= attendance.employeeID ? attendance.employeeID.name : 'N/A' %></td>
+                                        <td>
+                                            <%= attendance.checkInTime ? moment(attendance.checkInTime).format('HH:mm A') : '--' %>
+                                            <% if (attendance.earlyMinutes > 0) { %>
+                                                <span class="badge early-badge">Early <%= attendance.earlyMinutes %>m</span>
+                                            <% } else if (attendance.lateMinutes > 0) { %>
+                                                <span class="badge late-badge">Late <%= attendance.lateMinutes %>m</span>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <%= attendance.checkOutTime ? moment(attendance.checkOutTime).format('HH:mm A') : '--' %>
+                                        </td>
+                                        <td>
+                                            <%= attendance.workHours.toFixed(1) %>h
+                                            <% if (attendance.overtime > 0) { %>
+                                                <span class="overtime-badge">+<%= attendance.overtime %>h OT</span>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-<%= 
+                                                attendance.status === 'present' ? 'present' :
+                                                attendance.status === 'leave' ? 'leave' :
+                                                attendance.status === 'late' ? 'late' :
+                                                attendance.status === 'overtime' ? 'info' :
+                                                attendance.status === 'halfDay' ? 'warning' : 'secondary'
+                                            %>">
+                                                <%= attendance.status %>
+                                            </span>
+                                        </td>
+                                        <td class="time-info">
+                                            <% if (attendance.edited) { %>
+                                                <small>
+                                                    <i class="fa fa-edit"></i> Edited
+                                                    <% if (attendance.notes) { %>
+                                                        <i class="fa fa-info-circle" title="<%= attendance.notes %>"></i>
+                                                    <% } %>
+                                                </small>
+                                            <% } %>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" onclick="openEditModal('<%= attendance._id %>')">
+                                                Edit
+                                            </button>
+                                        </td>
+                                    </tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal fade" id="editModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="editForm" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Attendance</h5>
+                        <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                        <div class="form-group">
+                            <label>Check In Time</label>
+                            <input type="time" name="checkInTime" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>Check Out Time</label>
+                            <input type="time" name="checkOutTime" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select name="status" class="form-control">
+                                <option value="present">Present</option>
+                                <option value="late">Late</option>
+                                <option value="leave">Leave</option>
+                                <option value="halfDay">Half Day</option>
+                                <option value="overtime">Overtime</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Notes</label>
+                            <textarea name="notes" class="form-control" rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Save changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Real-time clock update
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString();
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Websocket connection for real-time updates
+        const socket = io();
+        
+        socket.on('attendanceUpdate', function(data) {
+            // Update statistics
+            updateStats(data.stats);
+            
+            // Update or add attendance record
+            const row = document.querySelector(`tr[data-id="${data.attendance._id}"]`);
+            if (row) {
+                updateAttendanceRow(row, data.attendance);
+            } else {
+                addNewAttendanceRow(data.attendance);
+            }
+        });
+
+        function updateStats(stats) {
+            document.getElementById('presentPercent').textContent = `${stats.presentPercentage}%`;
+            document.getElementById('leavePercent').textContent = `${stats.leavePercentage}%`;
+            document.getElementById('latePercent').textContent = `${stats.latePercentage}%`;
+            document.getElementById('ontimePercent').textContent = `${stats.onTimePercentage}%`;
+        }
+
+        function updateAttendanceRow(row, attendance) {
+            // Update row cells with new attendance data
+            const cells = row.getElementsByTagName('td');
+            cells[2].innerHTML = formatTime(attendance.checkInTime) + formatEarlyLate(attendance);
+            cells[3].innerHTML = formatTime(attendance.checkOutTime);
+            cells[4].innerHTML = formatWorkHours(attendance);
+            cells[5].innerHTML = formatStatus(attendance.status);
+        }
+
+        function formatTime(time) {
+            return time ? moment(time).format('HH:mm A') : '--';
+        }
+
+        function formatEarlyLate(attendance) {
+            if (attendance.earlyMinutes > 0) {
+                return `<span class="badge early-badge">Early ${attendance.earlyMinutes}m</span>`;
+            } else if (attendance.lateMinutes > 0) {
+                return `<span class="badge late-badge">Late ${attendance.lateMinutes}m</span>`;
+            }
+            return '';
+        }
+
+        function formatWorkHours(attendance) {
+            let html = `${attendance.workHours.toFixed(1)}h`;
+            if (attendance.overtime > 0) {
+                html += `<span class="overtime-badge">+${attendance.overtime}h OT</span>`;
+            }
+            return html;
+        }
+
+        function formatStatus(status) {
+            const classes = {
+                present: 'present',
+                leave: 'leave',
+                late: 'late',
+                overtime: 'info',
+                halfDay: 'warning'
+            };
+            return `<span class="badge badge-${classes[status] || 'secondary'}">${status}</span>`;
+        }
+
+        function openEditModal(id) {
+            document.getElementById('editForm').action = '/admin/edit-attendance/' + id;
+            $('#editModal').modal('show');
+        }
+    </script>
+</body>
+</html>
