@@ -7,6 +7,7 @@ module.exports.isLoggedIn = (req, res, next) => {
 };
 
 module.exports.isAdmin = (req, res, next) => {
+  console.log("[isAdmin] req.user:", req.user);
   if (req.isAuthenticated() && req.user && req.user.type === "admin") {
     return next();
   }

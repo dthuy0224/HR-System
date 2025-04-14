@@ -18,6 +18,7 @@ const passport = require("passport");
 const flash = require("connect-flash");
 const MongoStore = require("connect-mongo");
 const favicon = require("serve-favicon");
+const expressValidator = require("express-validator");
 
 const index = require("./routes/index");
 const admin = require("./routes/admin");
@@ -25,8 +26,6 @@ const employee = require("./routes/employee");
 const manager = require("./routes/manager");
 const db = require("./db");
 const debugRoute = require("./debug-route");
-
-expressValidator = require("express-validator");
 
 // Import the Passport configuration.
 // This module configures Passport's strategies and sets up serialization and deserialization rules.
@@ -113,13 +112,19 @@ app.use(function(err, req, res, next) {
   res.locals.message = err.message;
   res.locals.error = req.app.get("env") === "development" ? err : {};
 
-  // Xử lý các loại lỗi khác nhau
+  // Handle validation errors
+  if (err.name === 'ValidationError') {
+    req.flash("error", Object.values(err.errors).map(e => e.message));
+    return res.redirect(req.headers.referer || '/');
+  }
+
+  // Handle unauthorized access
   if (err.name === "UnauthorizedError") {
     req.flash("error", "Bạn không có quyền truy cập trang này");
     return res.redirect("/");
   }
 
-  // Xử lý lỗi TypeError (không thể đọc thuộc tính của undefined)
+  // Handle session timeouts
   if (err instanceof TypeError && err.message.includes("Cannot read properties of undefined")) {
     req.flash("error", "Phiên làm việc của bạn đã hết hạn. Vui lòng đăng nhập lại.");
     return res.redirect("/");

@@ -51,7 +51,6 @@ var UserSchema = new Schema({
     lowercase: true,
     trim: true
   },
-  position: { type: String, required: true },
   department: { type: String, required: true },
   gender: { type: String, enum: ['Male', 'Female'], required: true },
  
