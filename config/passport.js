@@ -73,12 +73,34 @@ passport.use(
           newUser.type = "employee";
         }
         newUser.password = newUser.encryptPassword(password);
+        newUser.firstName = req.body.firstName;
+        newUser.lastName = req.body.lastName;
         newUser.name = req.body.name;
         newUser.dateOfBirth = new Date(req.body.DOB);
+        newUser.personalEmail = req.body.personalEmail;
+        newUser.position = req.body.position;
         newUser.contactNumber = req.body.number;
         newUser.department = req.body.department;
+        newUser.employmentType = req.body.employmentType;
+        newUser.gender = req.body.gender;
         newUser.Skills = req.body["skills[]"];
+        newUser.birthplace = {
+          city: req.body.birthplace
+        };
+        newUser.address = {
+          city: req.body.addressCity,
+          district: req.body.addressDistrict,
+          details: req.body.addressDetails
+        };
+        newUser.idNumber = req.body.idNumber;
+        newUser.jobTitle = req.body.jobTitle;
+        newUser.jobId = req.body.jobId;
+        newUser.workExperience = req.body.workExperience;
+        newUser.supervisor = req.body.supervisor || null;
+        newUser.profileImage = req.body.profileImage || '';
+        newUser.isActive = true;
         newUser.designation = req.body.designation;
+        newUser.startDate = new Date(req.body.startDate);
         newUser.dateAdded = new Date();
 
         await newUser.save();
@@ -89,6 +111,7 @@ passport.use(
     }
   )
 );
+
 
 // This code sets up a local authentication strategy with Passport.js for signing in a user.
 // It first validates the email and password from the request body.
