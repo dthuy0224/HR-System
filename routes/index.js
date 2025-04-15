@@ -60,10 +60,19 @@ router.get("/check-type", function checkTypeOfLoggedInUser(req, res, next) {
   }
 });
 
-router.get("/logout", isLoggedIn, function logoutUser(req, res, next) {
-  req.logout();
-  res.redirect("/");
-});
+router.get(
+  "/logout", 
+  isLoggedIn,
+  require('./middleware').checkAttendanceBeforeLogout,
+  function logoutUser(req, res, next) {
+    req.logout(function(err) {
+      if (err) { 
+        return next(err); 
+      }
+      res.redirect("/");
+    });
+  }
+);
 
 router.get("/signup", function signUp(req, res, next) {
   const messages = req.flash("error");

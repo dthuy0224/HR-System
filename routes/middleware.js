@@ -46,3 +46,29 @@ module.exports.isManager = (req, res, next) => {
   req.flash("error", "Bạn không có quyền truy cập trang này");
   res.redirect("/");
 };
+
+module.exports.checkAttendanceBeforeLogout = async (req, res, next) => {
+  if (!req.isAuthenticated()) {
+    return next();
+  }
+
+  try {
+    const today = new Date();
+    const attendance = await require('../models/attendance').findOne({
+      employeeID: req.user._id,
+      date: today.getDate(),
+      month: today.getMonth() + 1,
+      year: today.getFullYear()
+    });
+
+    if (attendance && attendance.checkInTime && !attendance.checkOutTime) {
+      req.flash('warning', 'You have checked in but not checked out. Please check out before logging out.');
+      return res.redirect(req.headers.referer || '/');
+    }
+
+    next();
+  } catch (err) {
+    console.error('Error checking attendance before logout:', err);
+    next();
+  }
+};
